@@ -1,0 +1,10 @@
+// Admin model for MongoDB (optional, for admin-specific data)
+const mongoose = require('mongoose');
+
+const adminSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  permissions: [String],
+  createdAt: { type: Date, default: Date.now }
+});
+
+module.exports = mongoose.model('Admin', adminSchema);
