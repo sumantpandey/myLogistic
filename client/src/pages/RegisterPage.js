@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import axios from 'axios';
+import API from '../api/axiosConfig';
 
 function RegisterPage() {
   const [name, setName] = useState('');
@@ -11,10 +11,11 @@ function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await axios.post('/api/auth/register', { name, email, password });
+      await API.post('/api/auth/register', { name, email, password });
       setSuccess('Registration successful! Please login.');
       setError('');
     } catch (err) {
+      console.log(err);
       setError('Registration failed');
       setSuccess('');
     }
