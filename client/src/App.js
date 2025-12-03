@@ -5,6 +5,7 @@ import RegisterPage from './pages/RegisterPage';
 import OrdersPage from './pages/OrdersPage';
 import ShipmentsPage from './pages/ShipmentsPage';
 import AdminDashboard from './pages/AdminDashboard';
+import './css/global.css';
 
 function App() {
   return (

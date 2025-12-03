@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import API from '../api/axiosConfig';
+import '../css/global.css';
 
 function RegisterPage() {
   const [name, setName] = useState('');
@@ -14,24 +15,47 @@ function RegisterPage() {
       await API.post('/api/auth/register', { name, email, password });
       setSuccess('Registration successful! Please login.');
       setError('');
+      setName('');
+      setEmail('');
+      setPassword('');
     } catch (err) {
       console.log(err);
-      setError('Registration failed');
+      setError(err.response?.data?.message || 'Registration failed');
       setSuccess('');
     }
   };
 
   return (
-    <div>
-      <h2>Register</h2>
-      <form onSubmit={handleSubmit}>
-        <input type="text" placeholder="Name" value={name} onChange={e => setName(e.target.value)} required />
-        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-        <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
-        <button type="submit">Register</button>
-      </form>
-      {success && <p style={{color:'green'}}>{success}</p>}
-      {error && <p style={{color:'red'}}>{error}</p>}
+    <div className="container">
+      <div className="card" style={{ maxWidth: '400px', margin: '50px auto' }}>
+        <h2>Create Account</h2>
+        <form onSubmit={handleSubmit}>
+          <input 
+            type="text" 
+            placeholder="Full Name" 
+            value={name} 
+            onChange={e => setName(e.target.value)} 
+            required 
+          />
+          <input 
+            type="email" 
+            placeholder="Email Address" 
+            value={email} 
+            onChange={e => setEmail(e.target.value)} 
+            required 
+          />
+          <input 
+            type="password" 
+            placeholder="Password" 
+            value={password} 
+            onChange={e => setPassword(e.target.value)} 
+            required 
+          />
+          <button type="submit">Register</button>
+        </form>
+        {success && <p className="success">{success}</p>}
+        {error && <p className="error">{error}</p>}
+      </div>
     </div>
   );
 }
