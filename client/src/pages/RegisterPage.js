@@ -26,35 +26,45 @@ function RegisterPage() {
   };
 
   return (
-    <div className="container">
-      <div className="card" style={{ maxWidth: '400px', margin: '50px auto' }}>
+    <div className="auth-page">
+      <div className="auth-card">
         <h2>Create Account</h2>
+        <p className="form-subtitle">Join us today</p>
         <form onSubmit={handleSubmit}>
-          <input 
-            type="text" 
-            placeholder="Full Name" 
-            value={name} 
-            onChange={e => setName(e.target.value)} 
-            required 
-          />
-          <input 
-            type="email" 
-            placeholder="Email Address" 
-            value={email} 
-            onChange={e => setEmail(e.target.value)} 
-            required 
-          />
-          <input 
-            type="password" 
-            placeholder="Password" 
-            value={password} 
-            onChange={e => setPassword(e.target.value)} 
-            required 
-          />
+          <div className="form-group">
+            <input 
+              type="text" 
+              placeholder="Full Name" 
+              value={name} 
+              onChange={e => setName(e.target.value)} 
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <input 
+              type="email" 
+              placeholder="Email Address" 
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <input 
+              type="password" 
+              placeholder="Password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              required 
+            />
+          </div>
           <button type="submit">Register</button>
         </form>
         {success && <p className="success">{success}</p>}
         {error && <p className="error">{error}</p>}
+        <div className="auth-link">
+          Already have an account? <a href="/login">Sign in</a>
+        </div>
       </div>
     </div>
   );

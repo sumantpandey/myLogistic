@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import API from '../api/axiosConfig';
+import '../css/global.css';
 
 function LoginPage() {
   const [email, setEmail] = useState('');
@@ -11,7 +12,7 @@ function LoginPage() {
     try {
       const res = await API.post('/api/auth/login', { email, password });
       localStorage.setItem('token', res.data.token);
-      //window.location.href = '/orders';
+      window.location.href = '/orders';
       console.log('Login successful!');
     } catch (err) {
       setError('Invalid credentials');
@@ -19,14 +20,36 @@ function LoginPage() {
   };
 
   return (
-    <div>
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} required />
-        <input type="password" placeholder="Password" value={password} onChange={e => setPassword(e.target.value)} required />
-        <button type="submit">Login</button>
-      </form>
-      {error && <p style={{color:'red'}}>{error}</p>}
+    <div className="auth-page">
+      <div className="auth-card">
+        <h2>Welcome Back</h2>
+        <p className="form-subtitle">Sign in to your account</p>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <input 
+              type="email" 
+              placeholder="Email Address" 
+              value={email} 
+              onChange={e => setEmail(e.target.value)} 
+              required 
+            />
+          </div>
+          <div className="form-group">
+            <input 
+              type="password" 
+              placeholder="Password" 
+              value={password} 
+              onChange={e => setPassword(e.target.value)} 
+              required 
+            />
+          </div>
+          <button type="submit">Login</button>
+        </form>
+        {error && <p className="error">{error}</p>}
+        <div className="auth-link">
+          Don't have an account? <a href="/register">Sign up</a>
+        </div>
+      </div>
     </div>
   );
 }
