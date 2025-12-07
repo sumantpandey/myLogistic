@@ -1,7 +1,9 @@
 const Order = require('../models/Order');
+const Address = require('../models/Address');
+const isValidPin = (pin) => /^\d{6}$/.test(pin);
 
 // Create a new order
-exports.createOrder = async (req, res) => {
+/*exports.createOrder = async (req, res) => {
   try {
     const { items, shippingAddress, notes, total } = req.body;
     
@@ -46,21 +48,104 @@ exports.createOrder = async (req, res) => {
     console.error('Error creating order:', err);
     res.status(500).json({ message: 'Failed to create order' });
   }
+};*/
+
+exports.createOrder = async (req, res) => {
+  try {
+    const {
+      sourceAddress,
+      destinationAddress,
+      shipmentType,
+      weight,
+      notes
+    } = req.body;
+
+    // Basic required fields validation
+    if (!sourceAddress || !destinationAddress || !shipmentType || !weight) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
+
+    // Validate pincodes on both addresses
+    if (!isValidPin(sourceAddress.pinCode) || !isValidPin(destinationAddress.pinCode)) {
+      return res.status(400).json({ message: 'Invalid pinCode format (expected 6 digits)' });
+    }
+
+    // Validate shipmentType / weight
+    if (!['document', 'goods'].includes(shipmentType)) {
+      return res.status(400).json({ message: 'Invalid shipmentType' });
+    }
+    if (!['below_500mg', 'above_500mg'].includes(weight)) {
+      return res.status(400).json({ message: 'Invalid weight value' });
+    }
+
+    // Create Address documents (Address model no longer has country)
+    const srcAddrDoc = new Address({
+      addressLine1: sourceAddress.addressLine1,
+      city: sourceAddress.city,
+      district: sourceAddress.district || '',
+      state: sourceAddress.state,
+      pinCode: sourceAddress.pinCode,
+      contact: sourceAddress.contact
+    });
+    const destAddrDoc = new Address({
+      addressLine1: destinationAddress.addressLine1,
+      city: destinationAddress.city,
+      district: destinationAddress.district || '',
+      state: destinationAddress.state,
+      pinCode: destinationAddress.pinCode,
+      contact: destinationAddress.contact
+    });
+
+    await srcAddrDoc.save();
+    await destAddrDoc.save();
+
+    // Do NOT accept estimatedDelivery from client; model default will be used ("3-to-5 days")
+    const order = new Order({
+      user: req.user?.userId || null,
+      sourceAddress: srcAddrDoc._id,
+      destinationAddress: destAddrDoc._id,
+      shipmentType,
+      weight,
+      notes: notes || '',
+      status: 'pending'
+    });
+
+    await order.save();
+
+    // Use fresh query to populate (compatible with different Mongoose versions)
+    const populatedOrder = await Order.findById(order._id)
+      .populate('user', 'name email')
+      .populate('sourceAddress')
+      .populate('destinationAddress');
+
+    return res.status(201).json({ message: 'Order created', order: populatedOrder });
+  } catch (err) {
+    console.error('Error creating order:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
 };
 
 // Get all orders (admin sees all, users see their own)
-exports.getOrders = async (req, res) => {
+
+  exports.getOrders = async (req, res) => {
   try {
-    let orders;
-    if (req.user.role === 'admin') {
-      orders = await Order.find()
-        .populate('user', 'name email')
-        .sort({ createdAt: -1 });
+    let ordersQuery;
+    if (req.user && req.user.role === 'admin') {
+      ordersQuery = Order.find();
+    } else if (req.user && req.user.userId) {
+      ordersQuery = Order.find({ user: req.user.userId });
     } else {
-      orders = await Order.find({ user: req.user.userId })
-        .sort({ createdAt: -1 });
+      // if no auth available, return bad request or empty result — choose empty
+      return res.status(401).json({ message: 'Authentication required to view orders' });
     }
-    res.json(orders);
+
+    const orders = await ordersQuery
+      .populate('user', 'name email')
+      .populate('sourceAddress')
+      .populate('destinationAddress')
+      .sort({ createdAt: -1 });
+
+    res.json({ orders });
   } catch (err) {
     console.error('Error fetching orders:', err);
     res.status(500).json({ message: 'Failed to fetch orders' });

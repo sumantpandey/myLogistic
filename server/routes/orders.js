@@ -13,7 +13,7 @@ const auth = require('../middleware/auth');
 router.post('/createOrder', auth, createOrder);
 
 // Get all orders
-router.get('/getOrders', auth, getOrders);
+router.get('/', auth, getOrders);
 
 // Get a specific order by ID
 router.get('/:orderId', auth, getOrderById);

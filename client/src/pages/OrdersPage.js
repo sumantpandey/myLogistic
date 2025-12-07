@@ -11,10 +11,10 @@ function OrdersPage() {
     const fetchOrders = async () => {
       try {
         const token = localStorage.getItem('token');
-        const res = await API.get('/api/orders/getOrders', {
+        const res = await API.get('/api/orders', {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setOrders(res.data);
+        setOrders(res.data.orders || res.data);
       } catch (err) {
         setError('Failed to fetch orders');
       } finally {
@@ -41,6 +41,11 @@ function OrdersPage() {
         alert(err.response?.data?.message || 'Failed to delete order');
       }
     }
+  };
+
+  const formatAddress = (addr) => {
+    if (!addr) return 'N/A';
+    return `${addr.addressLine1}, ${addr.city}, ${addr.state} ${addr.pinCode}`;
   };
 
   return (
@@ -73,18 +78,27 @@ function OrdersPage() {
                 <div className="order-header">
                   <span className="order-id">Order #{order._id?.slice(-8)}</span>
                   <span className={`status-badge ${getStatusClass(order.status)}`}>
-                    {order.status}
+                    {order.status?.toUpperCase()}
                   </span>
                 </div>
                 <div className="order-details">
-                  <p><span className="detail-label">Items:</span> <span className="detail-value">{order.items?.length || 0}</span></p>
-                  <p><span className="detail-label">Total:</span> <span className="detail-value" style={{ fontWeight: 'bold', color: '#ff6b35' }}>${order.total?.toFixed(2) || '0.00'}</span></p>
-                  <p><span className="detail-label">Date:</span> <span className="detail-value">{new Date(order.createdAt).toLocaleDateString()}</span></p>
+                  <p><span className="detail-label">Shipment Type:</span> <span className="detail-value">{order.shipmentType || 'N/A'}</span></p>
+                  <p><span className="detail-label">Weight:</span> <span className="detail-value">{order.weight === 'below_500mg' ? 'Below 500mg' : '500mg and above'}</span></p>
+                  
+                  <p style={{ marginTop: '10px', fontWeight: 'bold' }}>Source Address:</p>
+                  <p style={{ marginLeft: '15px', fontSize: '13px', color: '#666' }}>{formatAddress(order.sourceAddress)}</p>
+                  
+                  <p style={{ marginTop: '10px', fontWeight: 'bold' }}>Destination Address:</p>
+                  <p style={{ marginLeft: '15px', fontSize: '13px', color: '#666' }}>{formatAddress(order.destinationAddress)}</p>
+                  
+                  <p><span className="detail-label">Created:</span> <span className="detail-value">{new Date(order.createdAt).toLocaleDateString()}</span></p>
+                  
                   {order.estimatedDelivery && (
                     <p><span className="detail-label">Est. Delivery:</span> <span className="detail-value">{new Date(order.estimatedDelivery).toLocaleDateString()}</span></p>
                   )}
-                  {order.shippingAddress && (
-                    <p><span className="detail-label">Address:</span> <span className="detail-value">{order.shippingAddress.substring(0, 50)}...</span></p>
+                  
+                  {order.notes && (
+                    <p><span className="detail-label">Notes:</span> <span className="detail-value">{order.notes}</span></p>
                   )}
                 </div>
                 <div style={{ display: 'flex', gap: '10px', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #eee' }}>

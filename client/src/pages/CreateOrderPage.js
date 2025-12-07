@@ -2,261 +2,250 @@ import React, { useState } from 'react';
 import API from '../api/axiosConfig';
 import '../css/global.css';
 
+function AddressForm({ prefix, addr, setAddr, showCountry, fetchPin }) {
+  return (
+    <>
+      <label>Pincode</label>
+      <input
+        value={addr.pinCode}
+        onChange={e => {
+          const newPin = e.target.value;
+          setAddr({ ...addr, pinCode: newPin });
+          if (/^\d{6}$/.test(newPin)) {
+            fetchPin(newPin, setAddr);
+          }
+        }}
+        required
+      />
+
+      <label>{prefix} Address Line 1</label>
+      <input
+        value={addr.addressLine1}
+        onChange={e => setAddr({ ...addr, addressLine1: e.target.value })}
+        required
+      />
+
+      <label>City</label>
+      <input
+        value={addr.city}
+        onChange={e => setAddr({ ...addr, city: e.target.value })}
+        required
+      />
+
+      <label>District</label>
+      <input
+        value={addr.district}
+        onChange={e => setAddr({ ...addr, district: e.target.value })}
+      />
+
+      <label>State</label>
+      <input
+        value={addr.state}
+        onChange={e => setAddr({ ...addr, state: e.target.value })}
+        required
+      />
+
+      {showCountry && (
+        <>
+          <label>Country</label>
+          <input
+            value={addr.country}
+            onChange={e => setAddr({ ...addr, country: e.target.value })}
+          />
+        </>
+      )}
+
+      <label>Contact</label>
+      <input
+        value={addr.contact}
+        onChange={e => setAddr({ ...addr, contact: e.target.value })}
+        required
+      />
+    </>
+  );
+}
+
 function CreateOrderPage() {
-  const [items, setItems] = useState([
-    { name: '', quantity: 1, price: 0 }
-  ]);
-  const [shippingAddress, setShippingAddress] = useState('');
+  const [region, setRegion] = useState('domestic');
+
+  const [sourceAddress, setSourceAddress] = useState({
+    pinCode: '', addressLine1: '', city: '', district: '', state: '', contact: ''
+  });
+  const [destinationAddress, setDestinationAddress] = useState({
+   pinCode: '', addressLine1: '', city: '', district: '', state: '', contact: ''
+  });
+
+  const [sourceAddressIntl, setSourceAddressIntl] = useState({
+    pinCode: '', addressLine1: '', city: '', district: '', state: '', country: '', contact: ''
+  });
+  const [destinationAddressIntl, setDestinationAddressIntl] = useState({
+    pinCode: '', addressLine1: '', city: '', district: '', state: '', country: '', contact: ''
+  });
+
+  const [shipmentType, setShipmentType] = useState('document');
+  const [weight, setWeight] = useState('below_500mg');
   const [notes, setNotes] = useState('');
-  const [success, setSuccess] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const [error, setError] = useState(null);
+  const [pinLookupLoading, setPinLookupLoading] = useState(false);
 
-  const handleItemChange = (index, field, value) => {
-    const updatedItems = [...items];
-    if (field === 'quantity' || field === 'price') {
-      updatedItems[index][field] = parseFloat(value) || 0;
-    } else {
-      updatedItems[index][field] = value;
+  // fetchPin will be passed down to AddressForm and called when pin length === 6
+  const fetchPin = async (pin, setAddr) => {
+    try {
+      setPinLookupLoading(true);
+      const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
+      const data = await res.json();
+      if (!Array.isArray(data) || data.length === 0) {
+        setError('Pin lookup failed');
+        setPinLookupLoading(false);
+        return;
+      }
+      const entry = data[0];
+      if (entry.Status !== 'Success' || !entry.PostOffice || entry.PostOffice.length === 0) {
+        setError('No location found for this pincode');
+        setPinLookupLoading(false);
+        return;
+      }
+      const po = entry.PostOffice[0];
+      // Populate state and district (and city if not set)
+      setAddr(prev => ({
+        ...prev,
+        state: po.State || prev.state,
+        district: po.District || prev.district,
+        city: prev.city || po.Region || prev.city
+      }));
+      setError(null);
+    } catch (err) {
+      setError('Failed to lookup pincode');
+    } finally {
+      setPinLookupLoading(false);
     }
-    setItems(updatedItems);
   };
 
-  const addItem = () => {
-    setItems([...items, { name: '', quantity: 1, price: 0 }]);
-  };
-
-  const removeItem = (index) => {
-    const updatedItems = items.filter((_, i) => i !== index);
-    setItems(updatedItems);
-  };
-
-  const calculateTotal = () => {
-    return items.reduce((total, item) => total + (item.quantity * item.price), 0).toFixed(2);
-  };
-
-  const calculateItemTotal = (item) => {
-    return (item.quantity * item.price).toFixed(2);
-  };
+  const validatePin = (p) => /^\d{6}$/.test(p);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setMsg(null);
+    setError(null);
 
-    // Validation
-    if (items.length === 0 || items.some(item => !item.name || item.quantity <= 0 || item.price <= 0)) {
-      setError('Please fill in all item details (name, quantity, and price)');
-      setLoading(false);
+    if (region === 'international') {
+      setError('International orders are not supported yet. This is a placeholder.');
       return;
     }
 
-    if (!shippingAddress.trim()) {
-      setError('Please enter a shipping address');
-      setLoading(false);
+    if (!validatePin(sourceAddress.pinCode) || !validatePin(destinationAddress.pinCode)) {
+      setError('Pincode must be 6 digits');
       return;
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const orderData = {
-        items,
-        shippingAddress,
-        notes,
-        total: parseFloat(calculateTotal()),
+      const payload = {
+        sourceAddress,
+        destinationAddress,
+        shipmentType,
+        weight,
+        notes
       };
 
-      const res = await API.post('/api/orders/createOrder', orderData, {
+      const token = localStorage.getItem('token');
+      const res = await API.post('/api/orders/createOrder', payload, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
-      setSuccess(`Order created successfully! Order ID: ${res.data._id}`);
-      setError('');
-      
-      // Reset form
-      setItems([{ name: '', quantity: 1, price: 0 }]);
-      setShippingAddress('');
+      setMsg('Order created successfully. ID: ' + res.data.order._id);
+      setError(null);
+      // reset form
+      setSourceAddress({ pinCode: '', addressLine1: '', city: '', district: '', state: '', contact: '' });
+      setDestinationAddress({ pinCode: '', addressLine1: '', city: '', district: '', state: '', contact: '' });
+      setShipmentType('document');
+      setWeight('below_500mg');
       setNotes('');
-
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        window.location.href = '/orders';
-      }, 2000);
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to create order');
-      setSuccess('');
-    } finally {
-      setLoading(false);
     }
   };
 
-  const total = calculateTotal();
-
   return (
-    <div className="container">
-      <div className="orders-container" style={{ maxWidth: '800px', margin: '0 auto' }}>
-        <h1 className="page-title">Create New Order</h1>
+    <div className="container" style={{ maxWidth: 900, marginTop: 30 }}>
+      <div className="card">
+        <h2>Create Shipment Order</h2>
 
-        {success && <p className="success">{success}</p>}
-        {error && <p className="error">{error}</p>}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+          <button
+            type="button"
+            onClick={() => setRegion('domestic')}
+            style={{
+              padding: '8px 16px',
+              background: region === 'domestic' ? '#ff6b35' : '#f0f0f0',
+              color: region === 'domestic' ? '#fff' : '#333',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer'
+            }}
+          >
+            Domestic
+          </button>
+          <button
+            type="button"
+            onClick={() => setRegion('international')}
+            style={{
+              padding: '8px 16px',
+              background: region === 'international' ? '#ff6b35' : '#f0f0f0',
+              color: region === 'international' ? '#fff' : '#333',
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer'
+            }}
+          >
+            International (placeholder)
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit}>
-          {/* Order Items Section */}
-          <div className="admin-section">
-            <h3>Order Items</h3>
+        {region === 'international' ? (
+          <div style={{ padding: 16, borderRadius: 6, background: '#fff9f6', border: '1px solid #ffe6d6' }}>
+            <p style={{ margin: 0, fontWeight: 600 }}>International orders coming soon</p>
+            <p style={{ marginTop: 8 }}>You selected International — this flow is a placeholder and not implemented yet.</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            <h3>Source Address</h3>
+            <AddressForm prefix="Source" addr={sourceAddress} setAddr={setSourceAddress} showCountry={false} fetchPin={fetchPin} />
 
-            <div style={{ overflowX: 'auto' }}>
-              <table className="users-table">
-                <thead>
-                  <tr>
-                    <th>Product Name</th>
-                    <th>Quantity</th>
-                    <th>Price</th>
-                    <th>Total</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map((item, index) => (
-                    <tr key={index}>
-                      <td>
-                        <input
-                          type="text"
-                          placeholder="Product name"
-                          value={item.name}
-                          onChange={(e) => handleItemChange(index, 'name', e.target.value)}
-                          style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                          required
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          placeholder="Qty"
-                          min="1"
-                          value={item.quantity}
-                          onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
-                          style={{ width: '80px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                          required
-                        />
-                      </td>
-                      <td>
-                        <input
-                          type="number"
-                          placeholder="Price"
-                          step="0.01"
-                          min="0"
-                          value={item.price}
-                          onChange={(e) => handleItemChange(index, 'price', e.target.value)}
-                          style={{ width: '100px', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}
-                          required
-                        />
-                      </td>
-                      <td>${calculateItemTotal(item)}</td>
-                      <td>
-                        <button
-                          type="button"
-                          onClick={() => removeItem(index)}
-                          className="btn-danger"
-                          style={{ padding: '6px 12px', fontSize: '12px' }}
-                        >
-                          Remove
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <h3 style={{ marginTop: 12 }}>Destination Address</h3>
+            <AddressForm prefix="Destination" addr={destinationAddress} setAddr={setDestinationAddress} showCountry={false} fetchPin={fetchPin} />
+
+            <div style={{ marginTop: 8 }}>
+              {pinLookupLoading && <small>Looking up pincode...</small>}
             </div>
 
-            <button
-              type="button"
-              onClick={addItem}
-              className="btn-secondary"
-              style={{ marginTop: '15px' }}
-            >
-              + Add Item
-            </button>
-          </div>
+            <label style={{ marginTop: 12 }}>Shipment Type</label>
+            <select value={shipmentType} onChange={e => setShipmentType(e.target.value)}>
+              <option value="document">Document</option>
+              <option value="goods">Goods</option>
+            </select>
 
-          {/* Order Summary Section */}
-          <div className="admin-section">
-            <h3>Order Summary</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-              <div>
-                <p><strong>Number of Items:</strong> {items.length}</p>
-                <p><strong>Total Quantity:</strong> {items.reduce((sum, item) => sum + item.quantity, 0)}</p>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <p style={{ fontSize: '14px', color: '#666' }}>Subtotal:</p>
-                <p style={{ fontSize: '24px', fontWeight: 'bold', color: '#ff6b35' }}>${total}</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Shipping Address Section */}
-          <div className="admin-section">
-            <h3>Shipping Details</h3>
-            <div className="form-group">
-              <label>Shipping Address</label>
-              <textarea
-                placeholder="Enter complete shipping address"
-                value={shippingAddress}
-                onChange={(e) => setShippingAddress(e.target.value)}
-                rows="4"
-                required
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontFamily: 'inherit',
-                  fontSize: '14px',
-                  resize: 'vertical'
-                }}
-              />
+            <label>Weight</label>
+            <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
+              <label>
+                <input type="radio" name="weight" value="below_500mg" checked={weight === 'below_500mg'} onChange={() => setWeight('below_500mg')} />
+                Below 500mg
+              </label>
+              <label>
+                <input type="radio" name="weight" value="above_500mg" checked={weight === 'above_500mg'} onChange={() => setWeight('above_500mg')} />
+                500mg and above
+              </label>
             </div>
 
-            <div className="form-group">
-              <label>Order Notes (Optional)</label>
-              <textarea
-                placeholder="Any special instructions or notes for this order"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows="3"
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid #ddd',
-                  borderRadius: '4px',
-                  fontFamily: 'inherit',
-                  fontSize: '14px',
-                  resize: 'vertical'
-                }}
-              />
-            </div>
-          </div>
+            <label>Notes (optional)</label>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3} />
 
-          {/* Action Buttons */}
-          <div className="action-buttons">
-            <button type="submit" disabled={loading} style={{ flex: 1 }}>
-              {loading ? 'Creating Order...' : 'Create Order'}
-            </button>
-            <a 
-              href="/orders" 
-              className="btn-secondary" 
-              style={{ 
-                flex: 1, 
-                textAlign: 'center', 
-                textDecoration: 'none',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-            >
-              Cancel
-            </a>
-          </div>
-        </form>
+            <button type="submit" style={{ marginTop: 12 }}>Create Order</button>
+          </form>
+        )}
+
+        {msg && <p className="success" style={{ marginTop: 12 }}>{msg}</p>}
+        {error && <p className="error" style={{ marginTop: 12 }}>{error}</p>}
       </div>
     </div>
   );
