@@ -4,6 +4,7 @@ const orderSchema = new mongoose.Schema({
   user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false },
   sourceAddress: { type: mongoose.Schema.Types.ObjectId, ref: 'Address', required: true },
   destinationAddress: { type: mongoose.Schema.Types.ObjectId, ref: 'Address', required: true },
+  shipment: { type: mongoose.Schema.Types.ObjectId, ref: 'Shipment', default: null },
   shipmentType: { type: String, enum: ['document', 'goods'], required: true },
   weight: { type: String, enum: ['below_500mg', 'above_500mg'], required: true },
   status: { type: String, enum: ['pending', 'processing', 'shipped', 'delivered', 'cancelled'], default: 'pending' },
